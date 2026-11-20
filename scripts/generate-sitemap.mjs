@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises'
 
-const siteUrl = process.env.SITE_URL?.replace(/\/$/, '')
+const siteUrl = (process.env.URL || process.env.SITE_URL)?.replace(/\/+$/, '')
 if (!siteUrl) {
-  console.warn('SITE_URL is not set; sitemap generation skipped. Set SITE_URL to the deployed portfolio URL before building for production.')
+  console.warn('SITE_URL and URL are not set; sitemap and absolute SEO URLs were skipped.')
   process.exit(0)
 }
 
@@ -15,5 +15,29 @@ await writeFile('dist/sitemap.xml', sitemap, 'utf8')
 await writeFile('dist/robots.txt', `User-agent: *\nAllow: /\nSitemap: ${siteUrl}/sitemap.xml\n`, 'utf8')
 const html = await readFile('dist/index.html', 'utf8')
 const socialImage = `${siteUrl}/images/john-loyd-portrait.png`
-const canonical = `<link rel="canonical" href="${siteUrl}/">\n    <meta property="og:url" content="${siteUrl}/">\n    <meta property="og:image" content="${socialImage}">`
-await writeFile('dist/index.html', html.replace('</head>', `${canonical}\n  </head>`), 'utf8')
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Person',
+      name: 'John Loyd W. Guanzon',
+      url: `${siteUrl}/`,
+      image: socialImage,
+      jobTitle: 'Aspiring Full-Stack Developer',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'Lipa City',
+        addressRegion: 'Batangas',
+        addressCountry: 'PH',
+      },
+    },
+    {
+      '@type': 'WebSite',
+      name: 'John Loyd Guanzon | Full-Stack Developer Portfolio',
+      url: `${siteUrl}/`,
+      inLanguage: 'en-PH',
+    },
+  ],
+}
+const absoluteSeo = `<link rel="canonical" href="${siteUrl}/">\n    <meta property="og:url" content="${siteUrl}/">\n    <meta property="og:image" content="${socialImage}">\n    <meta property="og:image:alt" content="John Loyd Guanzon — Full-Stack Developer">\n    <meta name="twitter:image" content="${socialImage}">\n    <script type="application/ld+json">${JSON.stringify(structuredData)}</script>`
+await writeFile('dist/index.html', html.replace('</head>', `${absoluteSeo}\n  </head>`), 'utf8')
